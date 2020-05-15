@@ -19,16 +19,18 @@ Prerequisites:
 
 * Docker Engine >= 1.13
 * Docker Compose >= 1.11
+* Additional docker network nginx_proxy with any webserver
 
 Containers:
 
-* Prometheus (metrics database) `http://<host-ip>:9090`
-* Prometheus-Pushgateway (push acceptor for ephemeral and batch jobs) `http://<host-ip>:9091`
-* AlertManager (alerts management) `http://<host-ip>:9093`
-* Grafana (visualize metrics) `http://<host-ip>:3000`
+* Prometheus (metrics database) 
+* Prometheus-Pushgateway (push acceptor for ephemeral and batch jobs)
+* VictoriaMetrics as prom storage
+* VMalert for connect to AlertManager
+* AlertManager (alerts management)
+* Grafana (visualize metrics)
 * NodeExporter (host metrics collector)
-* cAdvisor (containers metrics collector)
-* Caddy (reverse proxy and basic auth provider for prometheus and alertmanager)
+* Blackbox-exporter for monitoring urls 
 
 ## Setup Grafana
 
