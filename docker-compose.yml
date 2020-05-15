@@ -1,41 +1,77 @@
-version: '2.1'
+version: '3.7'
 
 networks:
-  monitor-net:
+  #loki: 
+  #  external: true
+  monitoring:
     driver: bridge
+  nginx_proxy:
+    external: true
 
 volumes:
     prometheus_data: {}
     grafana_data: {}
+    alertmanager_data: {}
 
 services:
 
-  prometheus:
-    image: prom/prometheus:v2.18.0
+  prometheus: # https://hub.docker.com/r/prom/prometheus
+    image: prom/prometheus:v2.17.2
     container_name: prometheus
     volumes:
-      - ./prometheus:/etc/prometheus
+      - ./prometheus/:/etc/prometheus/
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
+      - '--storage.tsdb.retention=7d'
       - '--web.enable-lifecycle'
     restart: unless-stopped
     expose:
       - 9090
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - monitoring
+    depends_on:
+      - "victoriametrics"
 
-  alertmanager:
+  victoriametrics: # https://hub.docker.com/r/victoriametrics/victoria-metrics
+    container_name: victoriametrics
+    image: victoriametrics/victoria-metrics:v1.35.2
+    expose:
+      - 8428
+    volumes:
+      - ./victoriametrics/data:/storage
+    command:
+      - '--storageDataPath=/storage'
+      - '--httpListenAddr=:8428'
+      - '--retentionPeriod=12'
+    networks:
+      - monitoring
+    restart: always
+
+  vmalert: # https://hub.docker.com/r/victoriametrics/vmalert/tags
+    container_name: vmalert
+    image: victoriametrics/vmalert:v1.35.2
+    volumes:
+      - ./alertmanager/:/alertmanager/
+    command:
+      - '-rule=/alertmanager/rules.yml'
+      - '-datasource.url=http://victoriametrics:8428'
+      - '-notifier.url=http://alertmanager:9093'
+    networks:
+      - monitoring
+    restart: always
+    depends_on:
+      - prometheus
+
+  alertmanager: # https://hub.docker.com/r/prom/alertmanager
     image: prom/alertmanager:v0.20.0
     container_name: alertmanager
-    volumes:
-      - ./alertmanager:/etc/alertmanager
+    volumes: 
+      - ./alertmanager/:/etc/alertmanager/
+      - alertmanager_data:/alertmanager
     command:
       - '--config.file=/etc/alertmanager/config.yml'
       - '--storage.path=/alertmanager'
@@ -43,9 +79,9 @@ services:
     expose:
       - 9093
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - monitoring
+    depends_on:
+      - vmalert
 
   nodeexporter:
     image: prom/node-exporter:v0.18.1
@@ -63,33 +99,34 @@ services:
     expose:
       - 9100
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - monitoring
 
-  cadvisor:
-    image: gcr.io/google-containers/cadvisor:v0.36.0
-    container_name: cadvisor
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-      #- /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
-    restart: unless-stopped
-    expose:
-      - 8080
-    networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+# Because non stable and use with roles
 
-  grafana:
-    image: grafana/grafana:6.7.3
+#    cadvisor: #https://github.com/google/cadvisor/releases
+#      image: gcr.io/google_containers/cadvisor:v0.35.0
+#      container_name: cadvisor
+#      volumes:
+#        - /:/rootfs:ro
+#        - /var/run:/var/run:ro
+#        - /sys:/sys:ro 
+#        - /var/lib/docker/:/var/lib/docker:ro
+#        - /dev/disk/:/dev/disk:ro
+#        #- /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
+#      restart: unless-stopped
+#      expose:
+#        - 8080
+#      networks:
+#        - monitoring
+
+  grafana: # https://hub.docker.com/r/grafana/grafana
+    image: grafana/grafana:7.0.0-beta3
     container_name: grafana
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/datasources:/etc/grafana/datasources
+      - ./grafana/dashboards:/etc/grafana/dashboards
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
     environment:
       - GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
@@ -98,36 +135,31 @@ services:
     expose:
       - 3000
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - monitoring
+      - nginx_proxy
+    depends_on:
+      - "victoriametrics"
+      - "prometheus"
 
-  pushgateway:
-    image: prom/pushgateway:v1.2.0
-    container_name: pushgateway
-    restart: unless-stopped
+  blackbox: # https://hub.docker.com/r/prom/blackbox-exporter
+    image: prom/blackbox-exporter:v0.16.0
+    container_name: blackbox_exporter
     expose:
-      - 9091
-    networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
-
-  caddy:
-    image: stefanprodan/caddy
-    container_name: caddy
-    ports:
-      - "3000:3000"
-      - "9090:9090"
-      - "9093:9093"
-      - "9091:9091"
+      - 9115
     volumes:
-      - ./caddy:/etc/caddy
-    environment:
-      - ADMIN_USER=${ADMIN_USER:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - ./blackbox/config.yml:/etc/blackbox/config.yml
     restart: unless-stopped
+    command: "--config.file=/etc/blackbox/config.yml"
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - monitoring
+
+#  pushgateway:
+#    image: prom/pushgateway:v1.2.0
+#    container_name: pushgateway
+#    restart: unless-stopped
+#    expose:
+#      - 9091
+#    networks:
+#      - monitor-net
+#    labels:
+#      org.label-schema.group: "monitoring"
