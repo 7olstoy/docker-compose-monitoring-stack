@@ -1,0 +1,92 @@
+groups:
+    - name: node-exporter
+      rules:
+  
+      - alert: PrometheusAlertmanagerNotificationFailing
+        expr: rate(alertmanager_notifications_failed_total[1m]) > 0
+        for: 1m
+        labels:
+          severity: error
+        annotations:
+          summary: "Prometheus AlertManager notification failing (instance {{ $labels.instance }})"
+          description: "Alertmanager is failing sending notifications\n Value = {{ $value }}\n" 
+  
+      - alert: MonitorServiceDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          title: "Service {{ $labels.service }} is down for {{ $labels.server }}"
+          summary: "Monitor service non-operational"
+          description: "Service {{ $labels.service }} is down"
+  
+      #- alert: HostHighCpuLoad
+      #  expr: 100 - (avg by(instance, job, service, server, user, monitor) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+      #  for: 2m
+      #  labels:
+      #    severity: warning
+      #  annotations:
+      #    title: "CPU overload at {{ $labels.server }}"
+      #    summary: "Host high CPU load (instance {{ $labels.instance }})"
+      #    description: "CPU load is > 80%\n Value = {{ $value }}\n"
+  
+      - alert: HostHighCpuLA
+        expr: node_load1 > count(node_cpu_seconds_total{mode="idle"}) without (cpu,mode)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          title: "LA is to high at {{ $labels.server }}"
+          summary: "Host high CPU load (instance {{ $labels.instance }})"
+          description: "Load average at {{ $labels.instance }} is to hight.\n Value: {{ $value }}\n"
+  
+      - alert: HostOutOfMemory
+        expr: 100 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100) > 85
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          title: "RAM overload at {{ $labels.server }}"
+          summary: "Host out of memory (instance {{ $labels.instance }})"
+          description: "Node memory is filling up (< 15% left)\n Value = {{ $value }}%\n"
+  
+      - alert: HostOutOfDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"}  * 100) / node_filesystem_size_bytes{mountpoint="/"} < 15
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          title: "Deficiency of storage at {{ $labels.server }}"
+          summary: "Host out of disk space (instance {{ $labels.instance }})"
+          description: "Disk is almost full (< 10% left)\n Value = {{ $value }}%\n"
+  
+      - alert: HostOutOfInodes
+        expr: node_filesystem_files_free{mountpoint ="/"} / node_filesystem_files{mountpoint ="/"} * 100 < 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          title: "Deficiency of inodes at {{ $labels.server }}"
+          summary: "Host out of inodes (instance {{ $labels.instance }})"
+          description: "Disk is almost running out of available inodes (< 10% left)\n Value = {{ $value }}%\n"
+  
+      - alert: BlackboxProbeFailed
+        expr: probe_success == 0
+        for: 1m
+        labels:
+          severity: error
+        annotations:
+          title: "Probe failed"
+          summary: "Blackbox probe failed"
+          description: "instance {{ $labels.instance }}"
+  
+      - alert: BlackboxProbeHttpFailure
+        expr: probe_http_status_code <= 199 OR probe_http_status_code >= 400
+        for: 1m
+        labels:
+          severity: error
+        annotations:
+          title: "Bad probe"
+          summary: "Blackbox probe HTTP failure (instance {{ $labels.instance }})"
+          description: "HTTP status code is not 200-399\n  Value = {{ $value }}\n"  
