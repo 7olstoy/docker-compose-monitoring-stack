@@ -5,28 +5,37 @@ global:
   # Attach these labels to any time series or alerts when communicating with
   # external systems (federation, remote storage, Alertmanager).
   external_labels:
-      monitor: 'docker-host-alpha'
+      monitor: 'monitoring'
 
-# Load and evaluate rules in this file every 'evaluation_interval' seconds.
-rule_files:
-  - "alert.rules"
+# Connect Victoria Metrics
+remote_write:
+  - url: http://victoriametrics:8428/api/v1/write
+    queue_config:
+      max_samples_per_send: 10000
+      max_shards: 30
 
 # A scrape configuration containing exactly one endpoint to scrape.
 scrape_configs:
-  - job_name: 'nodeexporter'
+  - job_name: 'project'
     scrape_interval: 5s
     static_configs:
-      - targets: ['nodeexporter:9100']
+      - targets:
+        - 'nodeexporter:9100'
+        labels:
+          server: "monitoring"
+          service: "node_exporter"
 
-  - job_name: 'cadvisor'
-    scrape_interval: 5s
-    static_configs:
-      - targets: ['cadvisor:8080']
+      - targets: 
+        - 'cadvisor:8080'
+        labels:
+          server: "monitoring"
+          service: "cadvisor"
 
-  - job_name: 'prometheus'
-    scrape_interval: 10s
-    static_configs:
-      - targets: ['localhost:9090']
+      - targets: 
+        - 'localhost:9090'
+        labels:
+          server: "monitoring"
+          service: "prometheus"
 
   - job_name: 'pushgateway'
     scrape_interval: 10s
@@ -34,20 +43,20 @@ scrape_configs:
     static_configs:
       - targets: ['pushgateway:9091']
 
-
-alerting:
-  alertmanagers:
-  - scheme: http
+  - job_name: 'blackbox-project'
+    scrape_interval: 30s
+    metrics_path: /probe
+    params:
+      module: 
+        - http_2xx
     static_configs:
-    - targets: 
-      - 'alertmanager:9093'
+      - targets:
+        - https://google.com #your links
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox_exporter:9115 
 
-#  - job_name: 'nginx'
-#    scrape_interval: 10s
-#    static_configs:
-#      - targets: ['nginxexporter:9113']
-
-#  - job_name: 'aspnetcore'
-#    scrape_interval: 10s
-#    static_configs:
-#      - targets: ['eventlog-proxy:5000', 'eventlog:5000']
