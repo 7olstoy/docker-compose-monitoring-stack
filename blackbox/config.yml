@@ -1,0 +1,13 @@
+#https://github.com/prometheus/blackbox_exporter/blob/master/CONFIGURATION.md#module
+modules:
+  http_2xx:
+    prober: http
+    timeout: 30s
+    http:
+      method: GET
+      no_follow_redirects: false
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      tls_config:
+        insecure_skip_verify: false
+      preferred_ip_protocol: "ip4"
