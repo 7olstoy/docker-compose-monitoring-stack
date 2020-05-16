@@ -46,7 +46,7 @@ services:
     command:
       - '--storageDataPath=/storage'
       - '--httpListenAddr=:8428'
-      - '--retentionPeriod=12'
+      - '--retentionPeriod=180'
     networks:
       - monitoring
     restart: always
