@@ -90,3 +90,14 @@ groups:
           title: "Bad probe"
           summary: "Blackbox probe HTTP failure (instance {{ $labels.instance }})"
           description: "HTTP status code is not 200-399\n  Value = {{ $value }}\n"  
+          
+      # Alert if <10 days
+      - alert: BlackboxProbeSSLExpire
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 <= 10
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          title: "SSL expire"
+          summary: "Your certificate will be expire in 10 days (instance {{ $labels.instance }})"
+          description: "Days left = {{ $value }}\n"
