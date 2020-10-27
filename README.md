@@ -4,6 +4,8 @@ docker-compose-monitoring-stack
 A monitoring solution for Docker hosts and containers with [Prometheus](https://prometheus.io/), [Grafana](http://grafana.org/), [VictoriaMetrics](https://hub.docker.com/r/victoriametrics/victoria-metrics),
 [NodeExporter](https://github.com/prometheus/node_exporter), [Blackbox-exporter](https://hub.docker.com/r/prom/blackbox-exporter) and alerting with [AlertManager](https://github.com/prometheus/alertmanager).
 
+Ansible version: [repo](https://github.com/A-styler/ansible-monitoring-stack).
+
 ## Install
 
 Clone this repository on your Docker host, cd into dockprom directory and run compose up:
